@@ -48,11 +48,15 @@ To run one assignment test class during development:
 
 ## Run locally
 
-Start PostgreSQL:
+Start PostgreSQL and Kafka:
 
 ```powershell
-docker compose up -d postgresql
+docker compose up -d
 ```
+
+The application connects to Kafka at `localhost:9092` (the Spring Boot default). It consumes
+readings from `sensor-reading` and alerts from `sensor-alerts`, and publishes saved alerts to
+`alerts`.
 
 Configure the datasource and start the application:
 
@@ -88,6 +92,25 @@ Retrieve the latest alert for a sensor:
 ```bash
 curl "http://localhost:8080/alerts/latest?sensorId=777d727e-6650-415f-85eb-9c9ca05f65c1"
 ```
+
+Send an alert through Kafka and watch it being republished to `alerts`:
+
+```bash
+echo '{"sensorId":"777d727e-6650-415f-85eb-9c9ca05f65c1","message":"Too hot","timestamp":"2026-10-27T14:31:00"}' \
+  | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
+      --bootstrap-server localhost:9092 --topic sensor-alerts
+
+docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic alerts --from-beginning
+```
+
+## Error handling
+
+- Invalid request bodies (missing name, sensor ID, value or timestamp) return `400 Bad Request`.
+- Unknown sensors and missing alerts return `404 Not Found`; duplicate sensor names return
+  `409 Conflict`. Errors are returned as RFC 9457 problem details.
+- Invalid Kafka messages and messages referencing an unknown sensor are logged and skipped
+  instead of being retried.
 
 ## Implemented assignment tasks
 

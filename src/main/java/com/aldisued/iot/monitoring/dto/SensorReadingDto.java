@@ -1,10 +1,11 @@
 package com.aldisued.iot.monitoring.dto;
 
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record SensorReadingDto(
-    UUID sensorId,
-    Double value,
-    LocalDateTime timestamp
+    @NotNull UUID sensorId,
+    @NotNull Double value,
+    @NotNull LocalDateTime timestamp
 ) {}

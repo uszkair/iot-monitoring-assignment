@@ -69,6 +69,33 @@ class AdditionalIntegrationTests extends IntegrationTestBase {
   }
 
   @Test
+  void rejectsReadingWithoutSensorId() throws Exception {
+    var dto = new SensorReadingDto(null, 12.5, LocalDateTime.now());
+
+    mockMvc.perform(MockMvcRequestBuilders.post("/sensor-readings")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(dto)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void rejectsReadingWithoutValueOrTimestamp() throws Exception {
+    var sensor = sensorRepository.saveAndFlush(new Sensor("validated-sensor", SensorType.HUMIDITY));
+
+    mockMvc.perform(MockMvcRequestBuilders.post("/sensor-readings")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(
+                new SensorReadingDto(sensor.getId(), null, LocalDateTime.now()))))
+        .andExpect(status().isBadRequest());
+
+    mockMvc.perform(MockMvcRequestBuilders.post("/sensor-readings")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(
+                new SensorReadingDto(sensor.getId(), 0.4, null))))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void enforcesSensorNameUniquenessInDatabase() {
     sensorRepository.saveAndFlush(new Sensor("unique-name", SensorType.TEMPERATURE));
 

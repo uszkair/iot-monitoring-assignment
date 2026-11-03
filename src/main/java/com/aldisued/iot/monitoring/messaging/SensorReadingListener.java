@@ -2,7 +2,9 @@ package com.aldisued.iot.monitoring.messaging;
 
 import com.aldisued.iot.monitoring.dto.SensorReadingDto;
 import com.aldisued.iot.monitoring.service.SensorReadingService;
+import jakarta.validation.Valid;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,7 +16,7 @@ public class SensorReadingListener {
   }
 
   @KafkaListener(topics = {"sensor-reading"}, groupId = "iot-monitoring")
-  public void listen(SensorReadingDto sensorReadingDto) {
+  public void listen(@Payload @Valid SensorReadingDto sensorReadingDto) {
     sensorReadingService.saveSensorReading(sensorReadingDto);
   }
 
