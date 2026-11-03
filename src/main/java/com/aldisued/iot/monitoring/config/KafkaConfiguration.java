@@ -1,0 +1,16 @@
+package com.aldisued.iot.monitoring.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.support.converter.RecordMessageConverter;
+import org.springframework.kafka.support.converter.StringJsonMessageConverter;
+
+@Configuration
+public class KafkaConfiguration {
+
+  @Bean
+  public RecordMessageConverter kafkaMessageConverter(ObjectMapper objectMapper) {
+    return new StringJsonMessageConverter(objectMapper);
+  }
+}
