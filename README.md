@@ -79,30 +79,39 @@ curl -X POST http://localhost:8080/sensors \
   -d '{"name":"Office temperature","type":"TEMPERATURE"}'
 ```
 
+The response contains the generated sensor `id`. The following examples use it:
+
+```bash
+SENSOR_ID=<id from the response above>
+```
+
 Save a sensor reading:
 
 ```bash
 curl -X POST http://localhost:8080/sensor-readings \
   -H "Content-Type: application/json" \
-  -d '{"sensorId":"777d727e-6650-415f-85eb-9c9ca05f65c1","value":22.8,"timestamp":"2026-10-27T14:30:00"}'
+  -d "{\"sensorId\":\"$SENSOR_ID\",\"value\":22.8,\"timestamp\":\"2026-10-27T14:30:00\"}"
 ```
 
-Retrieve the latest alert for a sensor:
+Retrieve the latest alert for a sensor (`404 Not Found` until the sensor has an alert):
 
 ```bash
-curl "http://localhost:8080/alerts/latest?sensorId=777d727e-6650-415f-85eb-9c9ca05f65c1"
+curl "http://localhost:8080/alerts/latest?sensorId=$SENSOR_ID"
 ```
 
 Send an alert through Kafka and watch it being republished to `alerts`:
 
 ```bash
-echo '{"sensorId":"777d727e-6650-415f-85eb-9c9ca05f65c1","message":"Too hot","timestamp":"2026-10-27T14:31:00"}' \
+echo "{\"sensorId\":\"$SENSOR_ID\",\"message\":\"Too hot\",\"timestamp\":\"2026-10-27T14:31:00\"}" \
   | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
       --bootstrap-server localhost:9092 --topic sensor-alerts
 
 docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic alerts --from-beginning
 ```
+
+In Git Bash on Windows, run `export MSYS_NO_PATHCONV=1` first; otherwise the in-container
+`/opt/kafka/...` paths are rewritten to Windows paths.
 
 ## Error handling
 

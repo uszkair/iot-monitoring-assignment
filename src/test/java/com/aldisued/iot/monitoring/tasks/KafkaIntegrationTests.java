@@ -12,6 +12,7 @@ import com.aldisued.iot.monitoring.entity.SensorType;
 import com.aldisued.iot.monitoring.repository.AlertRepository;
 import com.aldisued.iot.monitoring.repository.SensorReadingRepository;
 import com.aldisued.iot.monitoring.repository.SensorRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,9 @@ class KafkaIntegrationTests extends IntegrationTestBase {
   @Autowired
   private AlertsTopicCollector alertsTopicCollector;
 
+  @Autowired
+  private ObjectMapper objectMapper;
+
   private Sensor sensor;
 
   @BeforeEach
@@ -81,14 +86,17 @@ class KafkaIntegrationTests extends IntegrationTestBase {
   }
 
   @Test
-  void persistsAlertReceivedFromKafkaAndPublishesItToAlertsTopic() throws InterruptedException {
+  void persistsAlertReceivedFromKafkaAndPublishesItToAlertsTopic() throws Exception {
     var alertDto = new AlertDto(
-        sensor.getId(), "Too hot", LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS));
+        sensor.getId(), "Too hot", LocalDateTime.parse("2026-10-27T14:31:00"));
 
     kafkaTemplate.send("sensor-alerts", alertDto);
 
-    assertThat(alertsTopicCollector.received.poll(TIMEOUT.toSeconds(), TimeUnit.SECONDS))
-        .isEqualTo(alertDto);
+    var published = alertsTopicCollector.received.poll(TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+    assertThat(published).isNotNull();
+    assertThat(objectMapper.readTree(published).get("timestamp").asText())
+        .isEqualTo("2026-10-27T14:31:00");
+    assertThat(objectMapper.readValue(published, AlertDto.class)).isEqualTo(alertDto);
     assertThat(alertRepository.findAll())
         .singleElement()
         .satisfies(alert -> assertThat(alert.getMessage()).isEqualTo("Too hot"));
@@ -118,11 +126,11 @@ class KafkaIntegrationTests extends IntegrationTestBase {
 
   static class AlertsTopicCollector {
 
-    private final BlockingQueue<AlertDto> received = new LinkedBlockingQueue<>();
+    private final BlockingQueue<String> received = new LinkedBlockingQueue<>();
 
     @KafkaListener(topics = "alerts", groupId = "alerts-topic-test")
-    void listen(AlertDto alertDto) {
-      received.add(alertDto);
+    void listen(ConsumerRecord<String, String> record) {
+      received.add(record.value());
     }
   }
 }
