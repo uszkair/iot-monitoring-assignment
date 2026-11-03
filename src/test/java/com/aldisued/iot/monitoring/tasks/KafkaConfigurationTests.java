@@ -4,14 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aldisued.iot.monitoring.dto.AlertDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.util.Properties;
 import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.Serializer;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.support.converter.StringJsonMessageConverter;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 
 class KafkaConfigurationTests {
 
@@ -33,16 +36,27 @@ class KafkaConfigurationTests {
   }
 
   @Test
-  void convertsOutgoingDtoToJson() throws Exception {
+  void configuredProducerSerializerConvertsOutgoingDtoToJson() throws Exception {
     AlertDto alertDto = new AlertDto(
         UUID.randomUUID(), "Temperature is too high", LocalDateTime.now());
+    Serializer<AlertDto> serializer = new JsonSerializer<>(objectMapper);
 
-    ProducerRecord<?, ?> record = converter.fromMessage(
-        MessageBuilder.withPayload(alertDto).build(), "alerts");
+    byte[] json = serializer.serialize("alerts", alertDto);
 
-    assertThat(record).isNotNull();
-    assertThat(record.value()).isInstanceOf(String.class);
-    assertThat(objectMapper.readValue((String) record.value(), AlertDto.class))
+    assertThat(objectMapper.readValue(json, AlertDto.class))
         .isEqualTo(alertDto);
+  }
+
+  @Test
+  void applicationConfigSelectsJsonSerializerForKafkaProducer() throws IOException {
+    Properties properties = new Properties();
+    try (InputStream input = getClass().getClassLoader()
+        .getResourceAsStream("application.properties")) {
+      assertThat(input).isNotNull();
+      properties.load(input);
+    }
+
+    assertThat(properties.getProperty("spring.kafka.producer.value-serializer"))
+        .isEqualTo(JsonSerializer.class.getName());
   }
 }
